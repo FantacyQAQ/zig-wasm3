@@ -27,11 +27,13 @@ pub fn build(b: *std.Build) !void {
 
     b.installArtifact(lib);
 
-    const wasm_build = b.addExecutable(.{
-        .name = "wasm_example",
-        .root_source_file = b.path("example/wasm_src.zig"),
+    const wasm_mod = b.addModule("wasm_example_root", .{
         .target = b.resolveTargetQuery(.{ .cpu_arch = .wasm32, .os_tag = .wasi }),
         .optimize = .ReleaseSmall,
+    });
+    const wasm_build = b.addExecutable(.{
+        .name = "wasm_example",
+        .root_module = wasm_mod,
     });
     wasm_build.entry = .disabled;
     wasm_build.root_module.export_symbol_names = &.{
@@ -42,11 +44,14 @@ pub fn build(b: *std.Build) !void {
     };
     b.installArtifact(wasm_build);
 
-    const exe = b.addExecutable(.{
-        .name = "zig-wasm3-test",
+    const exe_mod = b.addModule("zig_wasm3_test_root", .{
         .root_source_file = b.path("example/test.zig"),
         .target = target,
         .optimize = optimize,
+    });
+    const exe = b.addExecutable(.{
+        .name = "zig_wasm3_test",
+        .root_module = exe_mod,
     });
     exe.root_module.addImport("wasm3", lib_mod);
     exe.linkLibrary(lib);

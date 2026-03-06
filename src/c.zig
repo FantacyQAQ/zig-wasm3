@@ -27,7 +27,7 @@ pub const M3BacktraceInfo = extern struct {
     frames: ?*M3BacktraceFrame,
     lastFrame: ?*M3BacktraceFrame,
 
-    pub fn lastFrameTruncated(self: *M3BacktraceInfo) callconv(.Inline) bool {
+    pub fn lastFrameTruncated(self: *M3BacktraceInfo) callconv(.@"inline") bool {
         const std = @import("std");
         const last_frame = @intFromPtr(self.lastFrame);
 
@@ -137,9 +137,9 @@ pub extern fn m3_NewEnvironment() IM3Environment;
 pub extern fn m3_FreeEnvironment(i_environment: IM3Environment) void;
 pub const M3SectionHandler =
     if (builtin.zig_backend == .stage1)
-        ?fn (IM3Module, name: [*:0]const u8, start: [*]const u8, end: *const u8) callconv(.C) M3Result
+        ?fn (IM3Module, name: [*:0]const u8, start: [*]const u8, end: *const u8) callconv(.c) M3Result
     else
-        ?*const fn (IM3Module, name: [*:0]const u8, start: [*]const u8, end: *const u8) callconv(.C) M3Result;
+        ?*const fn (IM3Module, name: [*:0]const u8, start: [*]const u8, end: *const u8) callconv(.c) M3Result;
 pub extern fn m3_SetCustomSectionHandler(i_environment: IM3Environment, i_handler: M3SectionHandler) void;
 pub extern fn m3_NewRuntime(io_environment: IM3Environment, i_stackSizeInBytes: u32, i_userdata: ?*anyopaque) IM3Runtime;
 pub extern fn m3_FreeRuntime(i_runtime: IM3Runtime) void;
@@ -159,9 +159,9 @@ pub extern fn m3_RunStart(i_module: IM3Module) M3Result;
 /// Return values should be written into _sp [0] to _sp [num_returns - 1]
 pub const M3RawCall =
     if (builtin.zig_backend == .stage1)
-        ?fn (IM3Runtime, ctx: *M3ImportContext, [*c]u64, ?*anyopaque) callconv(.C) ?*const anyopaque
+        ?fn (IM3Runtime, ctx: *M3ImportContext, [*c]u64, ?*anyopaque) callconv(.c) ?*const anyopaque
     else
-        ?*const fn (IM3Runtime, ctx: *M3ImportContext, [*c]u64, ?*anyopaque) callconv(.C) ?*const anyopaque;
+        ?*const fn (IM3Runtime, ctx: *M3ImportContext, [*c]u64, ?*anyopaque) callconv(.c) ?*const anyopaque;
 pub extern fn m3_LinkRawFunction(io_module: IM3Module, i_moduleName: [*:0]const u8, i_functionName: [*:0]const u8, i_signature: [*c]const u8, i_function: M3RawCall) M3Result;
 pub extern fn m3_LinkRawFunctionEx(io_module: IM3Module, i_moduleName: [*:0]const u8, i_functionName: [*:0]const u8, i_signature: [*c]const u8, i_function: M3RawCall, i_userdata: ?*const anyopaque) M3Result;
 /// Returns "<unknown>" on failure, but this behavior isn't described in the API so could be subject to change.

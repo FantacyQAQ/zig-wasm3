@@ -37,8 +37,8 @@
     // internet connectivity.
     .dependencies = .{
         .wasm3 = .{
-            .url = "git+https://github.com/FabricatorZayac/wasm3.git#45b90077ad012fa4acc510df21689edef13a9eba",
-            .hash = "wasm3-0.5.0-pLF6gWj7CABaIM-cTETfu_HGlAr57WwunBA63Kknk_WC",
+            .url = "git+https://github.com/FabricatorZayac/wasm3.git#34512e42bb80dd75f71fa4c468f28f3c5d2057bc",
+            .hash = "wasm3-0.5.0-pLF6gQX8CACQ-yYfIcP3NIHYuUdIAeEqJsuQagamNhkW",
         },
     },
     .paths = .{

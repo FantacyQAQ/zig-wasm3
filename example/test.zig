@@ -35,11 +35,11 @@ pub fn main() !void {
     try mod.linkWasi();
 
     try mod.linkLibrary("native_helpers", struct {
-        pub fn add(_: *std.mem.Allocator, lh: i32, rh: i32, mul: wasm3.SandboxPtr(i32)) callconv(.Inline) i32 {
+        pub fn add(_: *std.mem.Allocator, lh: i32, rh: i32, mul: wasm3.SandboxPtr(i32)) callconv(.@"inline") i32 {
             mul.write(lh * rh);
             return lh + rh;
         }
-        pub fn getArgv0(allocator: *std.mem.Allocator, str: wasm3.SandboxPtr(u8), max_len: u32) callconv(.Inline) u32 {
+        pub fn getArgv0(allocator: *std.mem.Allocator, str: wasm3.SandboxPtr(u8), max_len: u32) callconv(.@"inline") u32 {
             const in_buf = str.slice(max_len);
 
             // Version <= 9.0 has you pass the allocator to args_iter.next(), but
