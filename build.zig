@@ -11,6 +11,7 @@ pub fn build(b: *std.Build) !void {
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
     lib_mod.addCSourceFile(.{
         .file = b.path("src/wasm3_extra.c"),
@@ -22,14 +23,14 @@ pub fn build(b: *std.Build) !void {
         .name = "zig-wasm3",
         .root_module = lib_mod,
     });
-    lib.linkLibC();
-    lib.linkLibrary(wasm3.artifact("m3"));
+    lib_mod.linkLibrary(wasm3.artifact("m3"));
 
     b.installArtifact(lib);
 
     const wasm_mod = b.addModule("wasm_example_root", .{
         .target = b.resolveTargetQuery(.{ .cpu_arch = .wasm32, .os_tag = .wasi }),
         .optimize = .ReleaseSmall,
+        .root_source_file = b.path("example/wasm_src.zig"),
     });
     const wasm_build = b.addExecutable(.{
         .name = "wasm_example",
@@ -53,8 +54,8 @@ pub fn build(b: *std.Build) !void {
         .name = "zig_wasm3_test",
         .root_module = exe_mod,
     });
-    exe.root_module.addImport("wasm3", lib_mod);
-    exe.linkLibrary(lib);
+    exe_mod.addImport("wasm3", lib_mod);
+    exe_mod.linkLibrary(lib);
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);

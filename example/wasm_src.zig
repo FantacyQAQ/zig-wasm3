@@ -27,10 +27,6 @@ export fn addFive(num: i32) i32 {
 }
 
 export fn main() void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    var a = arena.allocator();
-
     const a1 = 2;
     const a2 = 6;
 
@@ -38,12 +34,4 @@ export fn main() void {
     const add_res = add(a1, a2, &mul_res);
 
     std.debug.print("{d} + {d} = {d} (multiplied, it's {d}!)\n", .{ a1, a2, add_res, mul_res });
-
-    var buf = a.alloc(u8, max_arg_size) catch std.debug.panic("Memory allocation failed!\n", .{});
-    const written = getArgv0(buf.ptr, buf.len);
-    if (written != 0) {
-        std.debug.print("Got string {s}!\n", .{buf[0..@intCast(written)]});
-    } else {
-        std.debug.print("Failed to write string! No bytes written.", .{});
-    }
 }
