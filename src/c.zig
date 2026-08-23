@@ -27,7 +27,7 @@ pub const M3BacktraceInfo = extern struct {
     frames: ?*M3BacktraceFrame,
     lastFrame: ?*M3BacktraceFrame,
 
-    pub fn lastFrameTruncated(self: *M3BacktraceInfo) callconv(.@"inline") bool {
+    pub inline fn lastFrameTruncated(self: *M3BacktraceInfo) bool {
         const std = @import("std");
         const last_frame = @intFromPtr(self.lastFrame);
 
@@ -43,6 +43,12 @@ pub const M3ValueType = enum(c_int) {
     Float32 = 3,
     Float64 = 4,
     Unknown = 5,
+
+    // Reference values are opaque pointer-sized words and null is always 0.
+    // A funcref holds an IM3Function; an externref holds a host-defined handle,
+    // which the host is free to encode however it likes as long as 0 means null.
+    FuncRef = 6,
+    ExternRef = 7,
 };
 
 pub const M3TaggedValue = extern struct {
@@ -57,7 +63,8 @@ pub const M3TaggedValue = extern struct {
         int64: i64,
         float32: f32,
         float64: f64,
-    }
+        ref: ?*anyopaque,
+    },
 };
 
 pub const M3ImportInfo = extern struct {
@@ -109,6 +116,20 @@ pub extern var m3Err_settingImmutableGlobal: M3Result;
 pub extern var m3Err_typeMismatch: M3Result;
 pub extern var m3Err_typeCountMismatch: M3Result;
 
+// validation errors. The wording follows the spec's own assert_invalid failure
+pub extern var m3Err_unknownType: M3Result;
+pub extern var m3Err_unknownLabel: M3Result;
+pub extern var m3Err_unknownLocal: M3Result;
+pub extern var m3Err_unknownGlobal: M3Result;
+pub extern var m3Err_unknownFunction: M3Result;
+pub extern var m3Err_unknownTable: M3Result;
+pub extern var m3Err_unknownMemory: M3Result;
+pub extern var m3Err_unknownDataSegment: M3Result;
+pub extern var m3Err_unknownElemSegment: M3Result;
+pub extern var m3Err_dataCountRequired: M3Result;
+pub extern var m3Err_invalidAlignment: M3Result;
+pub extern var m3Err_undeclaredFuncRef: M3Result;
+
 // runtime errors
 pub extern var m3Err_missingCompiledCode: M3Result;
 pub extern var m3Err_wasmMemoryOverflow: M3Result;
@@ -128,6 +149,11 @@ pub extern var m3Err_trapIntegerConversion: M3Result;
 pub extern var m3Err_trapIndirectCallTypeMismatch: M3Result;
 pub extern var m3Err_trapTableIndexOutOfRange: M3Result;
 pub extern var m3Err_trapTableElementIsNull: M3Result;
+pub extern var m3Err_trapNullReference: M3Result;
+pub extern var m3Err_trapNullFunctionRef: M3Result;
+// call_indirect past the end of the table is "undefined element"; the table
+// access instructions report an out of bounds access instead
+pub extern var m3Err_trapTableOutOfBounds: M3Result;
 pub extern var m3Err_trapExit: M3Result;
 pub extern var m3Err_trapAbort: M3Result;
 pub extern var m3Err_trapUnreachable: M3Result;

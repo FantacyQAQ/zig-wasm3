@@ -4,8 +4,10 @@ pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const wasm3 = b.dependency("wasm3", .{ .libm3 = true });
-    wasm3.artifact("m3").root_module.addCMacro("d_m3HasWASI", "1");
+    const wasm3 = b.dependency("wasm3", .{
+        .libm3 = true,
+        .build_wasi = .simple,
+    });
 
     const lib_mod = b.addModule("wasm3", .{
         .root_source_file = b.path("src/main.zig"),

@@ -95,6 +95,20 @@ pub const Error = error{
     TypeMismatch,
     TypeCountMismatch,
 
+    // validation errors. The wording follows the spec's own assert_invalid failure
+    UnknownType,
+    UnknownLabel,
+    UnknownLocal,
+    UnknownGlobal,
+    UnknownFunction,
+    UnknownTable,
+    UnknownMemory,
+    UnknownDataSegment,
+    UnknownElemSegment,
+    DataCountRequired,
+    InvalidAlignment,
+    UndeclaredFuncRef,
+
     // runtime errors
     MissingCompiledCode,
     WasmMemoryOverflow,
@@ -114,6 +128,11 @@ pub const Error = error{
     TrapIndirectCallTypeMismatch,
     TrapTableIndexOutOfRange,
     TrapTableElementIsNull,
+    TrapNullReference,
+    TrapNullFunctionRef,
+    // call_indirect past the end of the table is "undefined element"; the table
+    // access instructions report an out of bounds access instead
+    TrapTableOutOfBounds,
     TrapExit,
     TrapAbort,
     TrapUnreachable,
@@ -604,6 +623,8 @@ pub const Global = struct {
         Int64: i64,
         Float32: f32,
         Float64: f64,
+        FuncRef: ?*anyopaque,
+        ExternRef: ?*anyopaque,
     };
     pub const Type = c.M3ValueType;
     impl: c.IM3Global,
@@ -621,6 +642,8 @@ pub const Global = struct {
             .Int64 => Value {.Int64 = tagged_union.value.int64},
             .Float32 => Value {.Float32 = tagged_union.value.float32},
             .Float64 => Value {.Float64 = tagged_union.value.float64},
+            .FuncRef => Value {.FuncRef = tagged_union.value.ref},
+            .ExternRef => Value {.ExternRef = tagged_union.value.ref},
         };
     }
     pub fn set(this: Global, value_union: Value) !void {
@@ -629,6 +652,8 @@ pub const Global = struct {
             .Int64 => |value| .{.kind = .Int64, .value = .{.int64 = value}},
             .Float32 => |value| .{.kind = .Float32, .value = .{.float32 = value}},
             .Float64 => |value| .{.kind = .Float64, .value = .{.float64 = value}},
+            .FuncRef => |value| .{.kind = .FuncRef, .value = .{.ref = value}},
+            .ExternRef => |value| .{.kind = .ExternRef, .value = .{.ref = value}},
         };
         return ErrorMapping.mapError(c.m3_SetGlobal(this.impl, &tagged_union));
     }
