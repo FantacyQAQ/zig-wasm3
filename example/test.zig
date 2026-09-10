@@ -99,7 +99,7 @@ pub fn test_globals(init: std.process.Init) !void {
     std.debug.print("Trying to set 'one' value to 5.0, should fail.\n", .{});
 
     one.set(.{ .Float32 = 5.0 }) catch |err| switch (err) {
-        wasm3.Error.SettingImmutableGlobal => {
+        wasm3.Error.SettingImmutableGlobal, wasm3.Error.GlobalNotMutable => {
             std.debug.print("Failed successfully!\n", .{});
         },
         else => {

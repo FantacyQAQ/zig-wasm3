@@ -6,10 +6,8 @@
 #include <m3_env.h>
 #include <m3_exec_defs.h>
 
-u8 *wasm3_addon_get_runtime_mem_ptr(M3Runtime *runtime) {
-    return m3MemData(runtime->memory.mallocated);
-}
-
-M3Runtime *wasm3_addon_get_fn_rt(M3Function *func) {
-    return func->module->runtime;
+u8 *wasm3_addon_get_fn_mem_ptr(M3Function *func) {
+    IM3Memory mem = func->hostMemory ? func->hostMemory : Module_Memory0(func->module);
+    if (!mem) return (u8 *)NULL;
+    return mem->mallocated ? m3MemData(mem->mallocated) : (u8 *) NULL;
 }

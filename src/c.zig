@@ -42,13 +42,21 @@ pub const M3ValueType = enum(c_int) {
     Int64 = 2,
     Float32 = 3,
     Float64 = 4,
-    Unknown = 5,
+    V128 = 5,
 
     // Reference values are opaque pointer-sized words and null is always 0.
     // A funcref holds an IM3Function; an externref holds a host-defined handle,
     // which the host is free to encode however it likes as long as 0 means null.
     FuncRef = 6,
     ExternRef = 7,
+
+    // A caught exception, from the exception handling proposal. Holds a pointer
+    // to a runtime-owned exception object, or 0 for the null reference. The
+    // object belongs to the runtime and stays alive until the outermost
+    // m3_Call() that produced it returns - a host that stashes one past that
+    // point is holding a dangling reference.
+    ExnRef = 8,
+    Unknown,
 };
 
 pub const M3TaggedValue = extern struct {
@@ -102,8 +110,11 @@ pub extern var m3Err_moduleNotLinked: M3Result;
 pub extern var m3Err_moduleAlreadyLinked: M3Result;
 pub extern var m3Err_functionLookupFailed: M3Result;
 pub extern var m3Err_functionImportMissing: M3Result;
+pub extern var m3Err_unknownImport: M3Result;
+pub extern var m3Err_incompatibleImportType: M3Result;
 
 pub extern var m3Err_malformedFunctionSignature: M3Result;
+pub extern var m3Err_functionSignatureMismatch: M3Result;
 
 // compilation errors
 pub extern var m3Err_noCompiler: M3Result;
@@ -123,6 +134,7 @@ pub extern var m3Err_unknownLocal: M3Result;
 pub extern var m3Err_unknownGlobal: M3Result;
 pub extern var m3Err_unknownFunction: M3Result;
 pub extern var m3Err_unknownTable: M3Result;
+pub extern var m3Err_unknownTag: M3Result;
 pub extern var m3Err_unknownMemory: M3Result;
 pub extern var m3Err_unknownDataSegment: M3Result;
 pub extern var m3Err_unknownElemSegment: M3Result;
@@ -154,11 +166,16 @@ pub extern var m3Err_trapNullFunctionRef: M3Result;
 // call_indirect past the end of the table is "undefined element"; the table
 // access instructions report an out of bounds access instead
 pub extern var m3Err_trapTableOutOfBounds: M3Result;
+pub extern var m3Err_trapWasiExit: M3Result;
 pub extern var m3Err_trapExit: M3Result;
 pub extern var m3Err_trapAbort: M3Result;
 pub extern var m3Err_trapUnreachable: M3Result;
+pub extern var m3Err_trapUnsupportedInstruction: M3Result;
 pub extern var m3Err_trapStackOverflow: M3Result;
+pub extern var m3Err_trapOutOfGas: M3Result;
+pub extern var m3Err_trapUncaughtException: M3Result;
 
+// global environment than can host multiple runtimes
 pub extern fn m3_NewEnvironment() IM3Environment;
 pub extern fn m3_FreeEnvironment(i_environment: IM3Environment) void;
 pub const M3SectionHandler =
@@ -167,12 +184,22 @@ pub const M3SectionHandler =
     else
         ?*const fn (IM3Module, name: [*:0]const u8, start: [*]const u8, end: *const u8) callconv(.c) M3Result;
 pub extern fn m3_SetCustomSectionHandler(i_environment: IM3Environment, i_handler: M3SectionHandler) void;
+
+// execution context
 pub extern fn m3_NewRuntime(io_environment: IM3Environment, i_stackSizeInBytes: u32, i_userdata: ?*anyopaque) IM3Runtime;
 pub extern fn m3_FreeRuntime(i_runtime: IM3Runtime) void;
-pub extern fn m3_GetMemory(i_runtime: IM3Runtime, o_memorySizeInBytes: [*c]u32, i_memoryIndex: u32) [*c]u8;
-/// This is used internally by Raw Function helpers
-pub extern fn m3_GetMemorySize(i_runtime: IM3Runtime) u32;
+pub extern fn m3_SetValidation(i_runtime: IM3Runtime, i_enable: bool) void;
+pub extern fn m3_SetGasLimit(i_runtime: IM3Runtime, i_gas: f64) void;
+pub extern fn m3_GetGasLimit(i_runtime: IM3Runtime) f64;
+pub extern fn m3_GetGasUsed(i_runtime: IM3Runtime) f64;
+pub extern fn m3_GetMemory(i_module: IM3Module, o_memorySizeInBytes: [*c]usize, i_memoryIndex: u32) ?[*c]u8;
+pub extern fn m3_GetMemorySize(i_module: IM3Module, i_memoryIndex: u32) usize;
+pub extern fn m3_GetMemorySizeAt(i_memory: ?*const anyopaque) usize;
 pub extern fn m3_GetUserData(i_runtime: IM3Runtime) ?*anyopaque;
+pub extern fn m3_FindExportedMemory(i_module: IM3Module, i_name: [*:0]const u8, o_memoryIndex: [*c]u32) M3Result;
+pub extern fn m3_BindImportMemory(i_module: IM3Module, i_importModule: [*:0]const u8, o_memoryIndex: u32) M3Result;
+
+// module
 pub extern fn m3_ParseModule(i_environment: IM3Environment, o_module: *IM3Module, i_wasmBytes: [*]const u8, i_numWasmBytes: u32) M3Result;
 pub extern fn m3_FreeModule(i_module: IM3Module) void;
 ///  LoadModule transfers ownership of a module to the runtime. Do not free modules once successfully loaded into the runtime
@@ -190,16 +217,24 @@ pub const M3RawCall =
         ?*const fn (IM3Runtime, ctx: *M3ImportContext, [*c]u64, ?*anyopaque) callconv(.c) ?*const anyopaque;
 pub extern fn m3_LinkRawFunction(io_module: IM3Module, i_moduleName: [*:0]const u8, i_functionName: [*:0]const u8, i_signature: [*c]const u8, i_function: M3RawCall) M3Result;
 pub extern fn m3_LinkRawFunctionEx(io_module: IM3Module, i_moduleName: [*:0]const u8, i_functionName: [*:0]const u8, i_signature: [*c]const u8, i_function: M3RawCall, i_userdata: ?*const anyopaque) M3Result;
+pub extern fn m3_LinkGlobal(io_module: IM3Module, i_moduleName: [*:0]const u8, i_globalName: [*:0]const u8, i_value: *const M3TaggedValue) M3Result;
 /// Returns "<unknown>" on failure, but this behavior isn't described in the API so could be subject to change.
-pub extern fn m3_GetModuleName(i_module: IM3Module) [*:0]u8;
+pub extern fn m3_GetModuleName(i_module: IM3Module) [*:0]const u8;
 pub extern fn m3_SetModuleName(i_module: IM3Module, name: [*:0]const u8) void;
 pub extern fn m3_GetModuleRuntime(i_module: IM3Module) IM3Runtime;
+pub extern fn m3_FindModule(i_runtime: IM3Runtime, i_moduleName: [*:0]const u8) IM3Module;
+
+// globals
 pub extern fn m3_FindGlobal(io_module: IM3Module, i_globalName: [*:0]const u8) IM3Global;
 pub extern fn m3_GetGlobal(i_global: IM3Global, i_value: *M3TaggedValue) M3Result;
 pub extern fn m3_SetGlobal(i_global: IM3Global, i_value: *const M3TaggedValue) M3Result;
 pub extern fn m3_GetGlobalType(i_global: IM3Global) M3ValueType;
+
+// functions
 pub extern fn m3_Yield() M3Result;
-pub extern fn m3_FindFunction(o_function: [*c]IM3Function, i_runtime: IM3Runtime, i_functionName: [*c]const u8) M3Result;
+pub extern fn m3_FindFunction(o_function: [*c]IM3Function, i_runtime: IM3Runtime, i_functionName: [*:0]const u8) M3Result;
+pub extern fn m3_FindFunctionIn(o_function: *IM3Function, i_module: IM3Module, i_functionName: [*:0]const u8) M3Result;
+pub extern fn m3_GetTableFunction(o_function: *IM3Function, i_module: IM3Module, i_index: u32) M3Result;
 pub extern fn m3_GetArgCount(i_function: IM3Function) u32;
 pub extern fn m3_GetRetCount(i_function: IM3Function) u32;
 pub extern fn m3_GetArgType(i_function: IM3Function, index: u32) M3ValueType;
@@ -207,15 +242,39 @@ pub extern fn m3_GetRetType(i_function: IM3Function, index: u32) M3ValueType;
 pub extern fn m3_CallV(i_function: IM3Function, ...) M3Result;
 pub extern fn m3_Call(i_function: IM3Function, i_argc: u32, i_argptrs: [*c]?*const anyopaque) M3Result;
 pub extern fn m3_CallArgV(i_function: IM3Function, i_argc: u32, i_argv: [*c][*c]const u8) M3Result;
-pub extern fn m3_GetResults(i_function: IM3Function, i_retc: u32, ret_ptrs: [*c]?*anyopaque) M3Result;
+pub extern fn m3_GetResults(i_function: IM3Function, i_retc: u32, ret_ptrs: [*c]const ?*const anyopaque) M3Result;
 pub extern fn m3_GetErrorInfo(i_runtime: IM3Runtime, info: [*c]M3ErrorInfo) void;
 pub extern fn m3_ResetErrorInfo(i_runtime: IM3Runtime) void;
 /// Returns "<unnamed>" on failure, but this behavior isn't described in the API so could be subject to change.
 pub extern fn m3_GetFunctionName(i_function: IM3Function) [*:0]const u8;
 pub extern fn m3_GetFunctionModule(i_function: IM3Function) IM3Module;
+
+// debug info
 pub extern fn m3_PrintRuntimeInfo(i_runtime: IM3Runtime) void;
 pub extern fn m3_PrintM3Info() void;
 pub extern fn m3_PrintProfilerInfo() void;
 pub extern fn m3_GetBacktrace(i_runtime: IM3Runtime) ?*M3BacktraceInfo;
 
+// see `source/m3_api_wasi.h`
+const struct_m3_wasi_context_t = extern struct {
+    exit_code: i32 = 0,
+    argc: u32 = 0,
+    argv: [*c]const [*c]const u8 = null,
+};
+pub const m3_wasi_context_t = struct_m3_wasi_context_t;
+pub const M3Wasi = [*c]m3_wasi_context_t;
+
+// Free-standing WASI
+pub extern fn m3_NewCustomWASI([*c]M3Wasi) M3Result;
+pub extern fn m3_FreeCustomWASI(M3Wasi) void;
+pub extern fn m3_LinkCustomWASI(IM3Module, M3Wasi) M3Result;
+
+// Global WASI
 pub extern fn m3_LinkWASI(io_module: IM3Module) M3Result;
+/// I don't know why m3_wasi_context_t* is used here instead of the M3WASI macro.
+pub extern fn m3_GetWasiContext() [*c]m3_wasi_context_t;
+
+/// extension
+pub extern fn m3_NewModule(i_environment: IM3Environment) IM3Module;
+pub extern fn m3_InjectFunction(i_module: IM3Module, io_functionIndex: [*c]i32, i_signature: [*:0]const u8, i_wasmBytes: [*c]const u8, i_doCompilation: bool) M3Result;
+pub extern fn m3_GetFunctionByIndex(i_module: IM3Module, i_index: u32) IM3Function;
