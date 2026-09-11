@@ -106,6 +106,6 @@ pub inline fn getName(this: Function) ![:0]const u8 {
     return std.mem.span(name);
 }
 
-pub inline fn getModule(this: Function) inner.Module {
+pub inline fn getModule(this: Function) Module {
     return .{ .impl = c.m3_GetFunctionModule(this.impl) };
 }

@@ -12,28 +12,28 @@ pub const Module = @This();
 
 impl: c.IM3Module,
 
-pub fn deinit(this: inner.Module) void {
+pub fn deinit(this: Module) void {
     c.m3_FreeModule(this.impl);
 }
 
-pub fn getMemory(this: inner.Module, memory_index: u32) ?[]u8 {
+pub fn getMemory(this: Module, memory_index: u32) ?[]u8 {
     var size: usize = 0;
     const mem = c.m3_GetMemory(this.impl, &size, memory_index);
     if (mem) |valid| return valid[0..size];
     return null;
 }
 
-pub fn getMemorySize(this: inner.Module, memory_index: u32) usize {
+pub fn getMemorySize(this: Module, memory_index: u32) usize {
     return c.m3_GetMemorySize(this.impl, memory_index);
 }
 
-pub fn findExportedMemory(this: inner.Module, name: [:0]const u8) !u32 {
+pub fn findExportedMemory(this: Module, name: [:0]const u8) !u32 {
     var idx: u32 = undefined;
     try ErrorMapping.mapError(c.m3_FindExportedMemory(this.impl, name, &idx));
     return idx;
 }
 
-pub fn bindImportMemory(this: inner.Module, import_module: [:0]const u8, memory_idx: u32) !void {
+pub fn bindImportMemory(this: Module, import_module: [:0]const u8, memory_idx: u32) !void {
     try ErrorMapping.mapError(c.m3_BindImportMemory(this.impl, import_module, memory_idx));
 }
 
@@ -206,32 +206,32 @@ pub fn linkRawFunction(this: Module, library_name: [:0]const u8, function_name: 
 }
 
 /// Optional, compiles all functions in the module
-pub inline fn compile(this: inner.Module) !void {
+pub inline fn compile(this: Module) !void {
     return ErrorMapping.mapError(c.m3_CompileModule(this.impl));
 }
 
 /// This is optional.
-pub inline fn runStart(this: inner.Module) !void {
+pub inline fn runStart(this: Module) !void {
     return ErrorMapping.mapError(c.m3_RunStart(this.impl));
 }
 
-/// Don't free this, it's a member of the inner.Module.
+/// Don't free this, it's a member of the Module.
 /// Returns a generic name if the module is unnamed, such as "<unknown>"
-pub inline fn getName(this: inner.Module) ![:0]const u8 {
+pub inline fn getName(this: Module) ![:0]const u8 {
     const name = try ErrorMapping.mapError(c.m3_GetModuleName(this.impl));
     return std.mem.span(name);
 }
 
 /// Assumes that name will last as long as the module, does not copy
-pub inline fn setName(this: inner.Module, name: [:0]const u8) void {
+pub inline fn setName(this: Module, name: [:0]const u8) void {
     c.m3_SetModuleName(this.impl, name);
 }
 
-pub inline fn getRuntime(this: inner.Module) Runtime {
+pub inline fn getRuntime(this: Module) Runtime {
     return .{ .impl = c.m3_GetModuleRuntime(this.impl) };
 }
 
-pub inline fn linkGlobal(this: inner.Module, module_name: [:0]const u8, global_name: [:0]const u8) !?Global.Value {
+pub inline fn linkGlobal(this: Module, module_name: [:0]const u8, global_name: [:0]const u8) !?Global.Value {
     var raw: c.M3TaggedValue = undefined;
     try ErrorMapping.mapError(c.m3_LinkGlobal(this.impl, module_name, global_name, &raw));
     return switch (raw.kind) {
