@@ -175,29 +175,28 @@ pub fn linkRawFunction(this: Module, library_name: [:0]const u8, function_name: 
                         const ArgT = arg.type.?;
 
                         if (comptime (inner.isSandboxPtr(ArgT) or inner.isOptSandboxPtr(ArgT))) {
-                            if (comptime (inner.isSandboxPtr(ArgT) or inner.isOptSandboxPtr(ArgT))) {
-                                const vm_arg_addr: u32 = @as(*u32, @ptrFromInt(stack)).*;
-                                args[idx] = inner.fromLocalPtr(ArgT, vm_arg_addr, mem);
-                            } else {
-                                args[idx] = @as(*ArgT, @ptrFromInt(stack)).*;
-                            }
-                            idx += 1;
-                            stack += stride;
-                        }
-
-                        if (RetT == void) {
-                            @call(.always_inline, function, args);
+                            const vm_arg_addr: u32 = @as(*u32, @ptrFromInt(stack)).*;
+                            args[idx] = inner.fromLocalPtr(ArgT, vm_arg_addr, mem);
                         } else {
-                            const returned_value = @call(.always_inline, function, args);
-                            if (return_pointer) {
-                                ret_val.* = inner.toLocalPtr(returned_value);
-                            } else {
-                                ret_val.* = returned_value;
-                            }
+                            args[idx] = @as(*ArgT, @ptrFromInt(stack)).*;
                         }
 
-                        return c.m3Err_none;
+                        idx += 1;
+                        stack += stride;
                     }
+
+                    if (RetT == void) {
+                        @call(.always_inline, function, args);
+                    } else {
+                        const returned_value = @call(.always_inline, function, args);
+                        if (return_pointer) {
+                            ret_val.* = inner.toLocalPtr(returned_value);
+                        } else {
+                            ret_val.* = returned_value;
+                        }
+                    }
+
+                    return c.m3Err_none;
                 },
                 else => unreachable,
             }
