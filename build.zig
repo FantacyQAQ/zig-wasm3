@@ -39,6 +39,19 @@ pub fn build(b: *std.Build) !void {
         lib_mod.addCMacro("d_m3VerboseErrorMessage", "0");
         lib_mod.addIncludePath(b.path("src/stub"));
         lib_mod.link_libc = false;
+
+        // Drop libm for freestanding targets.
+        loop: for (m3.root_module.link_objects.items, 0..) |item, i| {
+            switch (item) {
+                .system_lib => |system_lib| {
+                    if (std.mem.eql(u8, system_lib.name, "m")) {
+                        _ = m3.root_module.link_objects.orderedRemove(i);
+                        break :loop;
+                    }
+                },
+                else => {},
+            }
+        }
     }
 
     lib_mod.addCSourceFile(.{
